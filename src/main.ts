@@ -11,6 +11,9 @@ const init = async () => {
   canvas.style.transform = "translateY(-110px)"
   canvas.style.left = `${window.innerWidth / 2 - 640 / 2}px`
   canvas.style.zIndex = "99"
+  canvas.width = 640
+  canvas.height = 480
+  canvas.style.pointerEvents = "none"
   document.body.appendChild(canvas)
   const video = await initWebcam()
   video.addEventListener("loadeddata", async () => {
@@ -30,17 +33,22 @@ const initWebcam = async () => {
 }
 
 const initBodySeg = async () => {
+  console.log(1)
   const model = bodySegmentation.SupportedModels.MediaPipeSelfieSegmentation
+  console.log(2)
   const segmenterConfig: bodySegmentation.MediaPipeSelfieSegmentationMediaPipeModelConfig =
     {
       runtime: "mediapipe",
       solutionPath:
         "https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation",
     }
+  console.log(3)
+  console.log(model)
   const segmenter = await bodySegmentation.createSegmenter(
     model,
     segmenterConfig
   )
+  console.log(4)
   return segmenter
 }
 
