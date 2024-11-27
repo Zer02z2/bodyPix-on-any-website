@@ -28,8 +28,6 @@ const handPositions: {
 
 const elementData = (element: HTMLElement): ElementData => {
   const rect = element.getBoundingClientRect()
-  //const moveX = x + direction.x * 10
-  //const moveY = y + direction.y * 10
   const increment = 0.01
   return {
     target: element,
@@ -46,6 +44,23 @@ const elementData = (element: HTMLElement): ElementData => {
   }
 }
 
+const findEndChildren = () => {
+  const elementsNodes = document.body.querySelectorAll("*")
+  const elements = Array.from(elementsNodes)
+  //let result = []
+  for (let i = elements.length - 1; i >= 0; i--) {
+    const element = elements[i]
+    const children = element.querySelectorAll(":scope > *")
+    if (Array.from(children).length === 0) {
+      //result.push(elementData(element))
+    }
+    //if (result.length === 10000) break
+  }
+  //return result
+}
+
+let endChildren = findEndChildren()
+let watchList = []
 const elementsNodes = document.body.querySelectorAll("*")
 const elements = Array.from(elementsNodes) as HTMLElement[]
 const elementDatas = elements.map((element) => elementData(element))
