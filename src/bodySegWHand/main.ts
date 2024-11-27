@@ -5,15 +5,60 @@ import "@tensorflow/tfjs-backend-webgl"
 import "@mediapipe/selfie_segmentation"
 import "@mediapipe/hands"
 
-let count = 0
+interface ElementData {
+  target: HTMLElement
+  moveX: number
+  moveY: number
+  increment: number
+  progress: number
+  opacity: number
+  scale: number
+  xLeft: number
+  xRight: number
+  yTop: number
+  yBottom: number
+}
+
+const offsets = { x: 0, y: 0 }
+const scale = 2
+const handPositions: {
+  Left: { x: number; y: number }[]
+  Right: { x: number; y: number }[]
+} = { Left: [], Right: [] }
+
+const elementData = (element: HTMLElement): ElementData => {
+  const rect = element.getBoundingClientRect()
+  //const moveX = x + direction.x * 10
+  //const moveY = y + direction.y * 10
+  const increment = 0.01
+  return {
+    target: element,
+    moveX: 0,
+    moveY: 0,
+    increment: increment,
+    progress: 0,
+    opacity: 1,
+    scale: 1,
+    xLeft: rect.left,
+    xRight: rect.left + rect.width,
+    yTop: rect.top,
+    yBottom: rect.top + rect.height,
+  }
+}
+
+const elementsNodes = document.body.querySelectorAll("*")
+const elements = Array.from(elementsNodes) as HTMLElement[]
+const elementDatas = elements.map((element) => elementData(element))
+let animateList: ElementData[] = []
+
 const init = async () => {
   let canvases = []
   for (let i = 0; i < 2; i++) {
     const canvas = document.createElement("canvas")
     canvas.style.position = "fixed"
     canvas.style.bottom = "0px"
-    canvas.style.scale = "1"
-    //canvas.style.transform = "translateY(-110px)"
+    canvas.style.scale = `${scale}`
+    canvas.style.transform = `translateY(${-110}px)`
     canvas.style.left = `${window.innerWidth / 2 - 640 / 2}px`
     canvas.style.zIndex = "99"
     canvas.width = 640
@@ -26,6 +71,9 @@ const init = async () => {
   video.addEventListener("loadeddata", async () => {
     const bodySegmenter = await initBodySeg()
     const handDetector = await initHandPose()
+    const rect = canvases[0].getBoundingClientRect()
+    offsets.x = rect.left
+    offsets.y = rect.top
     analyzeBody(bodySegmenter, video, canvases[0])
     analyzeHand(handDetector, video, canvases[1])
   })
@@ -141,6 +189,28 @@ const analyzeHand = async (
     ctx.lineWidth = 1
     ctx.strokeStyle = "red"
     line(ctx, vector1.x, vector1.y, vector2.x, vector2.y)
+
+    let positions = handPositions[hand.handedness]
+    positions.push(vector2)
+    const limit = 20
+    if (positions.length > limit) positions.slice(limit - 1, 1)
+    const direction = {
+      x: positions[positions.length - 1].x - positions[0].x,
+      y: positions[positions.length - 1].y - positions[0].y,
+    }
+
+    elementDatas.forEach((element) => {
+      const handX = vector2.x * 2 + offsets.x + window.scrollX
+      const handY = vector2.y * 2 + offsets.y + window.scrollY
+      const { xLeft, xRight, yTop, yBottom } = element
+      if (handX > xLeft && handX < xRight && handY > yTop && handY < yBottom) {
+        if (!animateList.find((data) => (data.target = element.target))) {
+          element.moveX = (xLeft + xRight) / 2 + direction.x * 10
+          element.moveY = (yTop + yBottom) / 2 + direction.y * 10
+          animateList.push(element)
+        }
+      }
+    })
   })
 
   window.requestAnimationFrame(() => {
@@ -149,6 +219,28 @@ const analyzeHand = async (
 }
 
 init()
+const animate = () => {
+  for (let i = animateList.length - 1; i >= 0; i--) {
+    const element = animateList[i]
+    const { target, moveX, moveY, increment, progress, opacity, scale } =
+      element
+
+    element.progress = progress + increment
+    element.opacity = opacity - increment
+    element.scale = scale - increment
+    target.style.transform = `translateX(${moveX * progress}px) translateY(${
+      moveY * progress
+    }px)`
+    target.style.opacity = `${opacity}`
+    target.style.scale = `${scale}`
+
+    if (element.progress >= 1) {
+      animateList.splice(i, 1)
+    }
+  }
+  window.requestAnimationFrame(animate)
+}
+animate()
 
 const line = (
   ctx: CanvasRenderingContext2D,
