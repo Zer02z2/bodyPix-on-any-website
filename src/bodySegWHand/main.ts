@@ -25,10 +25,14 @@ const handPositions: {
   Left: { x: number; y: number }[]
   Right: { x: number; y: number }[]
 } = { Left: [], Right: [] }
+const leftGloveImage = new Image()
+const rightGloveImage = new Image()
+leftGloveImage.src = "https://io.zongzechen.com/undnet/image/glove_left.png"
+rightGloveImage.src = "https://io.zongzechen.com/undnet/image/glove_right.png"
 
 const elementData = (element: HTMLElement): ElementData => {
   const rect = element.getBoundingClientRect()
-  const increment = 0.04
+  const increment = 0.02
   return {
     target: element,
     moveX: 0,
@@ -196,16 +200,26 @@ const analyzeHand = async (
 
   hands.forEach((hand) => {
     const vector1 = hand.keypoints[0]
-    const vector2 = hand.keypoints[12]
+    //const vector2 = hand.keypoints[12]
     const vector3 = hand.keypoints[9]
     ctx.lineWidth = 1
     ctx.strokeStyle = "red"
     //line(ctx, vector1.x, vector1.y, vector2.x, vector2.y)
     const dist = Math.sqrt(
-      (vector1.x - vector2.x) ** 2 + (vector1.y - vector2.y) ** 2
+      (vector1.x - vector3.x) ** 2 + (vector1.y - vector3.y) ** 2
     )
-    const margin = dist * 0.5
+    const margin = dist
     circle(ctx, vector3.x, vector3.y, margin)
+    const img = hand.handedness == "Left" ? leftGloveImage : rightGloveImage
+    ctx.translate(vector3.x, vector3.y)
+    const rotationAngle = getRadian(
+      { x: vector3.x - vector1.x, y: vector3.y - vector1.y },
+      { x: 0, y: 1 }
+    )
+    ctx.rotate(rotationAngle)
+    ctx.drawImage(img, -margin, -margin * 0.7, margin * 2, margin * 2)
+    ctx.rotate(-rotationAngle)
+    ctx.translate(-vector3.x, -vector3.y)
 
     let positions = handPositions[hand.handedness]
     positions.push(vector3)
@@ -223,7 +237,6 @@ const analyzeHand = async (
       }
       const handX = vector3.x * 2 + offsets.x + window.scrollX
       const handY = vector3.y * 2 + offsets.y + window.scrollY
-      console.log(handY)
       const { xLeft, xRight, yTop, yBottom } = element
       if (
         handX > xLeft - margin &&
@@ -302,4 +315,16 @@ const circle = (
   ctx.beginPath()
   ctx.arc(x, y, radius, 0, 2 * Math.PI)
   ctx.stroke()
+}
+
+const getRadian = (
+  vecA: { x: number; y: number },
+  vecB: { x: number; y: number }
+) => {
+  const crossProduct = vecA.x * vecB.y - vecA.y * vecB.x
+  const magnitudeA = Math.sqrt(vecA.x ** 2 + vecA.y ** 2)
+  const magnitudeB = Math.sqrt(vecB.x ** 2 + vecB.y ** 2)
+  const sineTheta = crossProduct / (magnitudeA * magnitudeB)
+  const clampedSineTheta = Math.max(-1, Math.min(1, sineTheta))
+  return Math.asin(clampedSineTheta)
 }
