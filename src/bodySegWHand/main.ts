@@ -28,7 +28,7 @@ const handPositions: {
 
 const elementData = (element: HTMLElement): ElementData => {
   const rect = element.getBoundingClientRect()
-  const increment = 0.01
+  const increment = 0.04
   return {
     target: element,
     moveX: 0,
@@ -47,23 +47,19 @@ const elementData = (element: HTMLElement): ElementData => {
 const findEndChildren = () => {
   const elementsNodes = document.body.querySelectorAll("*")
   const elements = Array.from(elementsNodes)
-  //let result = []
+  let result: ElementData[] = []
   for (let i = elements.length - 1; i >= 0; i--) {
-    const element = elements[i]
+    const element = elements[i] as HTMLElement
     const children = element.querySelectorAll(":scope > *")
     if (Array.from(children).length === 0) {
-      //result.push(elementData(element))
+      result.push(elementData(element))
     }
-    //if (result.length === 10000) break
   }
-  //return result
+  return result
 }
 
 let endChildren = findEndChildren()
-let watchList = []
-const elementsNodes = document.body.querySelectorAll("*")
-const elements = Array.from(elementsNodes) as HTMLElement[]
-const elementDatas = elements.map((element) => elementData(element))
+let watchList: ParentNode[] = []
 let animateList: ElementData[] = []
 
 const init = async () => {
@@ -201,31 +197,46 @@ const analyzeHand = async (
   hands.forEach((hand) => {
     const vector1 = hand.keypoints[0]
     const vector2 = hand.keypoints[12]
+    const vector3 = hand.keypoints[9]
     ctx.lineWidth = 1
     ctx.strokeStyle = "red"
-    line(ctx, vector1.x, vector1.y, vector2.x, vector2.y)
+    //line(ctx, vector1.x, vector1.y, vector2.x, vector2.y)
+    const dist = Math.sqrt(
+      (vector1.x - vector2.x) ** 2 + (vector1.y - vector2.y) ** 2
+    )
+    const margin = dist * 0.5
+    circle(ctx, vector3.x, vector3.y, margin)
 
     let positions = handPositions[hand.handedness]
-    positions.push(vector2)
+    positions.push(vector3)
     const limit = 20
-    if (positions.length > limit) positions.slice(limit - 1, 1)
+    if (positions.length > limit) positions.slice(0, 1)
     const direction = {
       x: positions[positions.length - 1].x - positions[0].x,
       y: positions[positions.length - 1].y - positions[0].y,
     }
 
-    elementDatas.forEach((element) => {
-      const handX = vector2.x * 2 + offsets.x + window.scrollX
-      const handY = vector2.y * 2 + offsets.y + window.scrollY
-      const { xLeft, xRight, yTop, yBottom } = element
-      if (handX > xLeft && handX < xRight && handY > yTop && handY < yBottom) {
-        if (!animateList.find((data) => (data.target = element.target))) {
-          element.moveX = (xLeft + xRight) / 2 + direction.x * 10
-          element.moveY = (yTop + yBottom) / 2 + direction.y * 10
-          animateList.push(element)
-        }
+    for (let i = endChildren.length - 1; i >= 0; i--) {
+      let element = endChildren[i]
+      if (!animateList.find((data) => data.target === element.target)) {
+        element = elementData(element.target)
       }
-    })
+      const handX = vector3.x * 2 + offsets.x + window.scrollX
+      const handY = vector3.y * 2 + offsets.y + window.scrollY
+      console.log(handY)
+      const { xLeft, xRight, yTop, yBottom } = element
+      if (
+        handX > xLeft - margin &&
+        handX < xRight + margin &&
+        handY > yTop - margin &&
+        handY < yBottom + margin
+      ) {
+        element.moveX = direction.x * 10
+        element.moveY = direction.y * 10
+        animateList.push(element)
+        endChildren.splice(i, 1)
+      }
+    }
   })
 
   window.requestAnimationFrame(() => {
@@ -251,21 +262,44 @@ const animate = () => {
 
     if (element.progress >= 1) {
       animateList.splice(i, 1)
+      const parent = target.parentNode
+      if (!parent) break
+      parent.removeChild(target)
+      if (watchList.find((item) => item === parent)) break
+      watchList.push(parent)
+    }
+    for (let i = watchList.length - 1; i >= 0; i--) {
+      const element = watchList[i] as HTMLElement
+      if (element.querySelectorAll(":scope > *").length === 0) {
+        watchList.splice(i, 1)
+        endChildren.push(elementData(element))
+      }
     }
   }
   window.requestAnimationFrame(animate)
 }
 animate()
 
-const line = (
+// const line = (
+//   ctx: CanvasRenderingContext2D,
+//   x1: number,
+//   y1: number,
+//   x2: number,
+//   y2: number
+// ) => {
+//   ctx.beginPath()
+//   ctx.moveTo(x1, y1)
+//   ctx.lineTo(x2, y2)
+//   ctx.stroke()
+// }
+
+const circle = (
   ctx: CanvasRenderingContext2D,
-  x1: number,
-  y1: number,
-  x2: number,
-  y2: number
+  x: number,
+  y: number,
+  radius: number
 ) => {
   ctx.beginPath()
-  ctx.moveTo(x1, y1)
-  ctx.lineTo(x2, y2)
+  ctx.arc(x, y, radius, 0, 2 * Math.PI)
   ctx.stroke()
 }
