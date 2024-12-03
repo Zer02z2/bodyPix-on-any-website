@@ -30,6 +30,30 @@ const rightGloveImage = new Image()
 leftGloveImage.src = "https://io.zongzechen.com/undnet/image/glove_left.png"
 rightGloveImage.src = "https://io.zongzechen.com/undnet/image/glove_right.png"
 
+const arrows: {
+  direction: string
+  src: string
+  target: HTMLElement | undefined
+  scroll: () => void
+}[] = [
+  {
+    direction: "up",
+    src: "",
+    target: undefined,
+    scroll: () => {
+      window.scrollBy({ top: -10 })
+    },
+  },
+  {
+    direction: "down",
+    src: "",
+    target: undefined,
+    scroll: () => {
+      window.scrollBy({ top: 10 })
+    },
+  },
+]
+
 const elementData = (element: HTMLElement): ElementData => {
   const rect = element.getBoundingClientRect()
   const increment = 0.02
@@ -63,25 +87,10 @@ const findEndChildren = () => {
 }
 
 let endChildren = findEndChildren()
-let watchList: ParentNode[] = []
 let animateList: ElementData[] = []
 
 const init = async () => {
-  let canvases = []
-  for (let i = 0; i < 2; i++) {
-    const canvas = document.createElement("canvas")
-    canvas.style.position = "fixed"
-    canvas.style.bottom = "0px"
-    canvas.style.scale = `${scale}`
-    canvas.style.transform = `translateY(${-110}px)`
-    canvas.style.left = `${window.innerWidth / 2 - 640 / 2}px`
-    canvas.style.zIndex = "99"
-    canvas.width = 640
-    canvas.height = 480
-    canvas.style.pointerEvents = "none"
-    document.body.appendChild(canvas)
-    canvases.push(canvas)
-  }
+  const canvases = createElements()
   const video = await initWebcam()
   video.addEventListener("loadeddata", async () => {
     const bodySegmenter = await initBodySeg()
@@ -92,6 +101,48 @@ const init = async () => {
     analyzeBody(bodySegmenter, video, canvases[0])
     analyzeHand(handDetector, video, canvases[1])
   })
+}
+
+const createElements = () => {
+  let canvases = []
+  for (let i = 0; i < 2; i++) {
+    const canvas = document.createElement("canvas")
+    canvas.id = "body-canvas"
+    canvas.style.position = "fixed"
+    canvas.style.bottom = "0px"
+    canvas.style.scale = `${scale}`
+    canvas.style.transform = `translateY(${-110}px)`
+    canvas.style.left = `${window.innerWidth / 2 - 640 / 2}px`
+    canvas.style.zIndex = "999"
+    canvas.width = 640
+    canvas.height = 480
+    canvas.style.pointerEvents = "none"
+    document.body.appendChild(canvas)
+    canvases.push(canvas)
+  }
+  arrows.forEach((arrow) => {
+    const button = document.createElement("div")
+    button.innerHTML = arrow.direction
+    button.style.width = "200px"
+    button.style.height = "60px"
+    button.style.display = "flex"
+    button.style.alignItems = "center"
+    button.style.justifyContent = "center"
+    button.style.position = "fixed"
+    button.style.left = `${window.innerWidth / 2 - 100}px`
+    button.style.zIndex = "1000"
+    button.style.backgroundColor = "#c9c9c9"
+    button.style.border = "1px solid black"
+    if (arrow.direction === "up") {
+      button.style.top = "0px"
+    } else if (arrow.direction === "down") {
+      button.style.bottom = "0px"
+    }
+    button.id = `body-${arrow.direction}-arrow`
+    arrow.target = button
+    document.body.appendChild(button)
+  })
+  return canvases
 }
 
 const initWebcam = async () => {
@@ -139,7 +190,7 @@ const analyzeBody = async (
   const people = await segmenter.segmentPeople(video, segmentationConfig)
 
   const foregroundColor = { r: 0, g: 0, b: 0, a: 0 }
-  const backgroundColor = { r: 0, g: 0, b: 0, a: 255 }
+  const backgroundColor = { r: 255, g: 255, b: 255, a: 255 }
   const backgroundDarkeningMask = await bodySegmentation.toBinaryMask(
     people,
     foregroundColor,
@@ -169,7 +220,7 @@ const analyzeBody = async (
     const b = data[i + 2]
     const a = data[i + 3]
 
-    if (r === 0 && g === 0 && b === 0 && a > 0) {
+    if (r === 255 && g === 255 && b === 255 && a > 0) {
       data[i + 3] = 0
     }
   }
@@ -204,7 +255,6 @@ const analyzeHand = async (
     const vector3 = hand.keypoints[9]
     ctx.lineWidth = 1
     ctx.strokeStyle = "red"
-    //line(ctx, vector1.x, vector1.y, vector2.x, vector2.y)
     const dist = Math.sqrt(
       (vector1.x - vector3.x) ** 2 + (vector1.y - vector3.y) ** 2
     )
@@ -230,31 +280,98 @@ const analyzeHand = async (
       y: positions[positions.length - 1].y - positions[0].y,
     }
 
-    for (let i = endChildren.length - 1; i >= 0; i--) {
-      let element = endChildren[i]
-      if (!animateList.find((data) => data.target === element.target)) {
-        element = elementData(element.target)
-      }
-      const handX = vector3.x * 2 + offsets.x + window.scrollX
-      const handY = vector3.y * 2 + offsets.y + window.scrollY
-      const { xLeft, xRight, yTop, yBottom } = element
+    let detectArrow = false
+    arrows.forEach((arrow) => {
+      const rect = arrow.target?.getBoundingClientRect()
+      if (!rect) return
+      const handX = vector3.x * 2 + offsets.x
+      const handY = vector3.y * 2 + offsets.y
       if (
-        handX > xLeft - margin &&
-        handX < xRight + margin &&
-        handY > yTop - margin &&
-        handY < yBottom + margin
+        handX > rect.left - margin &&
+        handX < rect.left + rect.width + margin &&
+        handY > rect.top - margin &&
+        handY < rect.top + rect.height + margin
       ) {
-        element.moveX = direction.x * 10
-        element.moveY = direction.y * 10
-        animateList.push(element)
-        endChildren.splice(i, 1)
+        arrow.scroll()
+        detectArrow = true
       }
-    }
+    })
+    if (detectArrow) return
+
+    const overlappedElement = findOverlapElement(
+      vector3.x,
+      vector3.y,
+      margin,
+      endChildren
+    )
+    if (
+      !overlappedElement ||
+      animateList.find(
+        (element) => element.target === overlappedElement.target
+      ) ||
+      overlappedElement.target == document.body ||
+      overlappedElement.target.id === "body-up-arrow" ||
+      overlappedElement.target.id === "body-down-arrow"
+    )
+      return
+    const children = Array.from(
+      overlappedElement.target.childNodes
+    ) as HTMLElement[]
+    let childrenInAnimation = false
+    children.forEach((child) => {
+      if (animateList.find((element) => element.target === child)) {
+        childrenInAnimation = true
+      }
+    })
+    if (childrenInAnimation) return
+
+    overlappedElement.moveX = direction.x * 10
+    overlappedElement.moveY = direction.y * 10
+    animateList.push(overlappedElement)
   })
 
   window.requestAnimationFrame(() => {
     analyzeHand(detector, video, canvas)
   })
+}
+
+const findOverlapElement = (
+  x: number,
+  y: number,
+  margin: number,
+  elements: ElementData[]
+) => {
+  const handX = x * 2 + offsets.x + window.scrollX
+  const handY = y * 2 + offsets.y + document.body.scrollTop
+  const result = elements.find((element) => {
+    const { xLeft, xRight, yTop, yBottom, target } = element
+    if (
+      handX > xLeft - margin &&
+      handX < xRight + margin &&
+      handY > yTop - margin &&
+      handY < yBottom + margin &&
+      target.id !== "body-canvas"
+    ) {
+      return true
+    } else {
+      return false
+    }
+  })
+  if (result) return result
+
+  const parentList = elements
+    .map((element) => {
+      const parent = element.target.parentElement
+      if (parent) return elementData(parent)
+      else return null
+    })
+    .filter((value, index, array) => {
+      return array.indexOf(value) === index
+    })
+    .filter((element) => element !== null)
+
+  if (parentList.length === 0) return null
+  else return findOverlapElement(x, y, margin, parentList)
 }
 
 init()
@@ -278,33 +395,12 @@ const animate = () => {
       const parent = target.parentNode
       if (!parent) break
       parent.removeChild(target)
-      if (watchList.find((item) => item === parent)) break
-      watchList.push(parent)
-    }
-    for (let i = watchList.length - 1; i >= 0; i--) {
-      const element = watchList[i] as HTMLElement
-      if (element.querySelectorAll(":scope > *").length === 0) {
-        watchList.splice(i, 1)
-        endChildren.push(elementData(element))
-      }
+      endChildren = findEndChildren()
     }
   }
   window.requestAnimationFrame(animate)
 }
 animate()
-
-// const line = (
-//   ctx: CanvasRenderingContext2D,
-//   x1: number,
-//   y1: number,
-//   x2: number,
-//   y2: number
-// ) => {
-//   ctx.beginPath()
-//   ctx.moveTo(x1, y1)
-//   ctx.lineTo(x2, y2)
-//   ctx.stroke()
-// }
 
 const circle = (
   ctx: CanvasRenderingContext2D,
