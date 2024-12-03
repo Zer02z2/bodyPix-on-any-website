@@ -27,8 +27,8 @@ const handPositions: {
 } = { Left: [], Right: [] }
 const leftGloveImage = new Image()
 const rightGloveImage = new Image()
-leftGloveImage.src = "https://io.zongzechen.com/undnet/image/glove_left.png"
-rightGloveImage.src = "https://io.zongzechen.com/undnet/image/glove_right.png"
+leftGloveImage.src = "https://io.zongzechen.com/undnet/files/glove_left.png"
+rightGloveImage.src = "https://io.zongzechen.com/undnet/files/glove_right.png"
 
 const arrows: {
   direction: string
@@ -41,7 +41,7 @@ const arrows: {
     src: "",
     target: undefined,
     scroll: () => {
-      window.scrollBy({ top: -10 })
+      window.scrollBy({ top: -50 })
     },
   },
   {
@@ -49,7 +49,7 @@ const arrows: {
     src: "",
     target: undefined,
     scroll: () => {
-      window.scrollBy({ top: 10 })
+      window.scrollBy({ top: 50 })
     },
   },
 ]
