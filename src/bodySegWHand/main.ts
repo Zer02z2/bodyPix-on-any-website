@@ -422,5 +422,11 @@ const getRadian = (
   const magnitudeB = Math.sqrt(vecB.x ** 2 + vecB.y ** 2)
   const sineTheta = crossProduct / (magnitudeA * magnitudeB)
   const clampedSineTheta = Math.max(-1, Math.min(1, sineTheta))
-  return Math.asin(clampedSineTheta)
+  let result = Math.asin(clampedSineTheta)
+  if (vecA.y > 0) {
+    if (vecA.x < 0) {
+      result = -Math.PI - result
+    } else result = Math.PI - result
+  }
+  return result
 }
