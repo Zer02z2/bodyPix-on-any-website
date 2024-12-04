@@ -17,6 +17,7 @@ interface ElementData {
   xRight: number
   yTop: number
   yBottom: number
+  width: number
 }
 
 const offsets = { x: 0, y: 0 }
@@ -69,6 +70,7 @@ const elementData = (element: HTMLElement): ElementData => {
     xRight: rect.left + rect.width,
     yTop: rect.top,
     yBottom: rect.top + rect.height,
+    width: rect.width,
   }
 }
 
@@ -325,7 +327,7 @@ const analyzeHand = async (
     })
     if (childrenInAnimation) return
 
-    overlappedElement.moveX = direction.x * 10
+    overlappedElement.moveX = direction.x * 20
     overlappedElement.moveY = direction.y * 10
     animateList.push(overlappedElement)
   })
