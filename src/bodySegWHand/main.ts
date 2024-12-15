@@ -19,6 +19,7 @@ interface ElementData {
   yBottom: number
 }
 
+const modelPath = "http://localhost:3001/undnet/files/@mediapipe"
 const offsets = { x: 0, y: 0 }
 const scale = 2
 const handPositions: {
@@ -93,13 +94,17 @@ const init = async () => {
   const canvases = createElements()
   const video = await initWebcam()
   video.addEventListener("loadeddata", async () => {
-    const bodySegmenter = await initBodySeg()
-    const handDetector = await initHandPose()
-    const rect = canvases[0].getBoundingClientRect()
-    offsets.x = rect.left
-    offsets.y = rect.top
-    analyzeBody(bodySegmenter, video, canvases[0])
-    analyzeHand(handDetector, video, canvases[1])
+    try {
+      const bodySegmenter = await initBodySeg()
+      const handDetector = await initHandPose()
+      const rect = canvases[0].getBoundingClientRect()
+      offsets.x = rect.left
+      offsets.y = rect.top
+      analyzeBody(bodySegmenter, video, canvases[0])
+      analyzeHand(handDetector, video, canvases[1])
+    } catch (error) {
+      console.log(error)
+    }
   })
 }
 
@@ -122,7 +127,7 @@ const createElements = () => {
   }
   arrows.forEach((arrow) => {
     const button = document.createElement("div")
-    button.innerHTML = arrow.direction
+    button.innerHTML = `Scroll ${arrow.direction}`
     button.style.width = "200px"
     button.style.height = "60px"
     button.style.display = "flex"
@@ -142,6 +147,20 @@ const createElements = () => {
     arrow.target = button
     document.body.appendChild(button)
   })
+  // const instruction = document.createElement("p")
+  // instruction.innerHTML = "Move hands around!"
+  // instruction.style.color = "red"
+  // instruction.style.fontSize = "32px"
+  // instruction.style.position = "fixed"
+  // instruction.style.left = "0px"
+  // instruction.style.top = "0px"
+  // instruction.style.margin = "0"
+  // instruction.style.padding = "1rem"
+  // instruction.style.backgroundColor = "white"
+  // instruction.style.border = "2px solid red"
+  // instruction.style.zIndex = "999"
+  // instruction.id = "body-instruction"
+  // document.body.appendChild(instruction)
   return canvases
 }
 
@@ -160,8 +179,7 @@ const initBodySeg = async () => {
   const segmenterConfig: bodySegmentation.MediaPipeSelfieSegmentationMediaPipeModelConfig =
     {
       runtime: "mediapipe",
-      solutionPath:
-        "https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation",
+      solutionPath: `${modelPath}/selfie_segmentation`,
     }
   const segmenter = await bodySegmentation.createSegmenter(
     model,
@@ -174,8 +192,7 @@ const initHandPose = async () => {
   const model = handPoseDetection.SupportedModels.MediaPipeHands
   const detectorConfig: handPoseDetection.MediaPipeHandsMediaPipeModelConfig = {
     runtime: "mediapipe",
-    solutionPath: "https://cdn.jsdelivr.net/npm/@mediapipe/hands",
-    // or 'base/node_modules/@mediapipe/hands' in npm.
+    solutionPath: `${modelPath}/hands`,
   }
   const detector = await handPoseDetection.createDetector(model, detectorConfig)
   return detector
@@ -311,7 +328,8 @@ const analyzeHand = async (
       ) ||
       overlappedElement.target == document.body ||
       overlappedElement.target.id === "body-up-arrow" ||
-      overlappedElement.target.id === "body-down-arrow"
+      overlappedElement.target.id === "body-down-arrow" ||
+      overlappedElement.target.id === "body-instruction"
     )
       return
     const children = Array.from(
